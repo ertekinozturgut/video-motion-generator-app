@@ -71,6 +71,8 @@ export function QueueBoard({
         text:
           action === "requeue_expired"
             ? `${json.requeued} iş kuyruğa geri alındı`
+            : action === "process"
+              ? `${json.claimed} iş alındı, ${json.done} tamamlandı${json.failed ? `, ${json.failed} başarısız` : ""}`
             : action === "retry"
               ? "İş yeniden kuyruğa alındı"
               : "İş iptal edildi",
@@ -103,13 +105,22 @@ export function QueueBoard({
           title="İşler"
           hint="Son 80 kayıt, yeniden eskiye."
           action={
-            <button
-              onClick={() => act("requeue_expired")}
-              disabled={busy !== null}
-              className={btn.ghost}
-            >
-              {busy === "requeue_expired" ? "Toparlanıyor" : "Süresi dolanları topla"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => act("process")}
+                disabled={busy !== null || !(counts.QUEUED ?? 0)}
+                className={btn.primary}
+              >
+                {busy === "process" ? "İşleniyor" : "Sıradakileri işle"}
+              </button>
+              <button
+                onClick={() => act("requeue_expired")}
+                disabled={busy !== null}
+                className={btn.ghost}
+              >
+                {busy === "requeue_expired" ? "Toparlanıyor" : "Süresi dolanları topla"}
+              </button>
+            </div>
           }
         />
 
