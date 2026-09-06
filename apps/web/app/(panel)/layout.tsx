@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isConfigured } from "@/lib/supabase/env";
 import { getAdmin } from "@/lib/auth";
+import { SignOut } from "@/components/SignOut";
 
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   let email: string | undefined;
@@ -16,25 +17,34 @@ export default async function PanelLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-dvh">
-      <header className="border-b border-line">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-4">
-          <Link href="/" className="font-semibold tracking-tight">Video üretimi</Link>
+      <header className="sticky top-0 z-20 border-b border-line bg-ink/90 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-6 py-3.5">
+          <Link href="/" className="font-semibold tracking-tight">
+            Video üretimi
+          </Link>
+
           {email && (
-            <Link href="/runs/new" className="text-sm text-muted hover:text-text">
-              Yeni çalışma
-            </Link>
-          )}
-          {admin && (
-            <>
-              <Link href="/settings/providers" className="text-sm text-muted hover:text-text">
-                Sağlayıcılar
+            <nav className="flex items-center gap-x-5">
+              <Link href="/" className="text-sm text-muted transition-colors hover:text-text">
+                Çalışmalar
               </Link>
-              <Link href="/settings/routing" className="text-sm text-muted hover:text-text">
-                Model dağıtımı
+              <Link href="/runs/new" className="text-sm text-muted transition-colors hover:text-text">
+                Yeni çalışma
               </Link>
-            </>
+              {admin && (
+                <Link href="/settings" className="text-sm text-muted transition-colors hover:text-text">
+                  Yönetim
+                </Link>
+              )}
+            </nav>
           )}
-          <span className="ml-auto text-sm text-muted">{email}</span>
+
+          {email && (
+            <div className="ml-auto flex items-center gap-3">
+              <span className="hidden text-sm text-muted sm:block">{email}</span>
+              <SignOut />
+            </div>
+          )}
         </div>
       </header>
       <main>{children}</main>
