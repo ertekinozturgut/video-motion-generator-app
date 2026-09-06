@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+/*
+  Palet, bir kurgu/render izleme yüzeyi için seçildi.
+  Tek vurgu rengi amber: yalnız insan müdahalesi bekleyen durumlar onu alır.
+  Diğer her şey sessiz kalır, böylece dikkat gerçekten gereken yere gider.
+*/
+@theme {
+  --color-ink:    #12161c;
+  --color-panel:  #1a1f27;
+  --color-raised: #222835;
+  --color-line:   #2a313c;
+  --color-text:   #e4e7ec;
+  --color-muted:  #8b95a5;
+
+  --color-attention: #e9a23b;  /* onay bekleyen / insan gereken */
+  --color-active:    #4c8df6;  /* çalışıyor */
+  --color-good:      #3fa37a;  /* onaylandı / tamamlandı */
+  --color-bad:       #d2564b;  /* teknik hata */
+  --color-idle:      #4a5361;  /* sırada / atlandı */
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html { color-scheme: dark; }
+
+body {
+  background: var(--color-ink);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Zaman kodları ve skorlar tabular olmalı, yoksa liste zıplar. */
+.tnum { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+:focus-visible {
+  outline: 2px solid var(--color-active);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

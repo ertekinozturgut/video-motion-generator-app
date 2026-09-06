@@ -1,0 +1,10 @@
+{
+  "name": "video-panel",
+  "private": true,
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:push": "supabase db push"
+  },
+  "packageManager": "pnpm@9.12.0"
+}
