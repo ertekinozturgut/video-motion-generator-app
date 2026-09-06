@@ -5,7 +5,8 @@ export type JsonModeTier = "native" | "tool" | "prompt";
 
 export type ModelFamily =
   | "gpt" | "claude" | "gemini" | "llama" | "qwen"
-  | "deepseek" | "mistral" | "glm" | "kimi" | "other" | "unknown";
+  | "deepseek" | "mistral" | "glm" | "kimi" | "minimax"
+  | "other" | "unknown";
 
 export interface ModelCapabilities {
   json_schema: JsonModeTier;

@@ -19,6 +19,7 @@ const PATTERNS: Array<[RegExp, ModelFamily]> = [
   [/mistral|mixtral|magistral/i, "mistral"],
   [/glm|zhipu/i, "glm"],
   [/kimi|moonshot/i, "kimi"],
+  [/minimax|abab/i, "minimax"],
 ];
 
 export function resolveFamily(modelKey: string, kind: ProviderKind): ModelFamily {

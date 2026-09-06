@@ -1,0 +1,32 @@
+-- =============================================================
+-- Video Üretim Paneli — 0005_fix_is_admin_execute
+--
+-- 0004 fazla süpürdü: is_admin()'in EXECUTE yetkisini anon ve
+-- authenticated rollerinden aldı. Ama is_admin() üç RLS politikasının
+-- ifadesinin İÇİNDE çağrılıyor (providers, provider_models,
+-- model_routes). Politika ifadesi çağıran rolün yetkisiyle
+-- değerlendirildiği için, yetki alınınca politika "false" dönmüyor;
+--
+--     42501 — permission denied for function is_admin
+--
+-- fırlatıyor. Yani sağlayıcı ekranı admin kullanıcı için de kırıldı.
+--
+-- Yetkiyi geri veriyoruz. Bu bir gerileme değil: is_admin() argüman
+-- almıyor, STABLE ve SECURITY DEFINER, search_path'i sabit ve yalnız
+-- "çağıran kişi admin mi" sorusunu cevaplıyor. Başka bir kullanıcı
+-- hakkında bilgi sızdırmıyor, yetki yükseltmeye de yaramıyor.
+-- =============================================================
+
+grant execute on function is_admin() to anon, authenticated;
+
+-- Not: 0004'teki diğer revoke'lar yerinde kalıyor ve doğrular.
+--   claim_next_jobs / requeue_expired_jobs / complete_job / fail_job
+--     → yalnız service role çağırıyor, PostgREST'e açılmamalı.
+--   handle_new_user / touch_updated_at
+--     → trigger fonksiyonu. PostgreSQL EXECUTE yetkisini trigger
+--       oluşturulurken kontrol eder, tetiklenirken değil; bu yüzden
+--       revoke bunları bozmuyor.
+--
+-- Bundan sonra bir fonksiyondan EXECUTE alırken şunu sor: bu fonksiyon
+-- herhangi bir RLS politikasının ifadesinde geçiyor mu? Geçiyorsa
+-- politikanın uygulandığı rollerin EXECUTE yetkisi kalmalı.
