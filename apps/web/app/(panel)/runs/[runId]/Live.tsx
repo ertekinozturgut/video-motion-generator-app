@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Timeline, type TimelineMotion } from "@/components/Timeline";
@@ -87,14 +89,17 @@ export function Live({
       </div>
 
       {status === "AWAITING_APPROVAL" && (
-        <div className="rounded border border-attention/40 bg-attention/10 p-4">
+        <div className="rounded-lg border border-attention/40 bg-attention/10 p-4">
           <p className="text-sm">
             Doğruluğundan emin olunmayan bilgiler işaretlendi. Üretim, sen
             bunları gözden geçirene kadar duruyor.
           </p>
-          <p className="mt-2 text-sm text-muted">
-            Onay ekranı Sprint 3&apos;te devreye giriyor.
-          </p>
+          <Link
+            href={`/runs/${runId}/approval`}
+            className="mt-3 inline-flex items-center justify-center rounded-md bg-text px-4 py-2 text-sm font-medium text-ink"
+          >
+            İddiaları incele
+          </Link>
         </div>
       )}
 
