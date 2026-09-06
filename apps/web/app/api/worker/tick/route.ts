@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { handleJob, type JobRow } from "@/lib/jobs/handlers";
+import { drainQueue } from "@/lib/jobs/runner";
 
 export const maxDuration = 300;
 
@@ -16,41 +16,30 @@ export async function POST(request: NextRequest) {
   }
 
   const db = createAdminClient();
-  const { data: requeued } = await db.rpc("requeue_expired_jobs");
 
-  const { data: jobs, error } = await db.rpc("claim_next_jobs", {
-    p_worker_id: `tick-${process.env.VERCEL_DEPLOYMENT_ID ?? "local"}`,
-    p_limit: 5,
-    p_lease_minutes: 5,
-  });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Bu çağrının hatası eskiden yutuluyordu; requeue_expired_jobs bozukken
+  // (bkz. migration 0006) kimse fark etmedi. Artık rapora giriyor.
+  const { data: requeued, error: requeueError } = await db.rpc("requeue_expired_jobs");
 
-  const results = await Promise.allSettled(
-    (jobs ?? []).map((j: JobRow) => runOne(j))
-  );
-
-  return NextResponse.json({
-    requeued: requeued ?? 0,
-    claimed: jobs?.length ?? 0,
-    failed: results.filter((r) => r.status === "rejected").length,
-  });
+  try {
+    const result = await drainQueue({
+      workerId: `tick-${process.env.VERCEL_DEPLOYMENT_ID ?? "local"}`,
+      limit: 5,
+    });
+    return NextResponse.json({
+      requeued: requeued ?? 0,
+      requeue_error: requeueError?.message ?? null,
+      claimed: result.claimed,
+      processed: result.done,
+      failed: result.failed,
+    });
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+  }
 }
 
 export const GET = POST; // Vercel Cron GET ile çağırır
 
-async function runOne(job: JobRow) {
-  const db = createAdminClient();
-  try {
-    await handleJob(job);
-    await db.rpc("complete_job", { p_job_id: job.job_id });
-  } catch (e) {
-    await db.rpc("fail_job", {
-      p_job_id: job.job_id,
-      p_error: (e as Error).message.slice(0, 500),
-      p_retry_in_seconds: Math.min(300, 30 * 2 ** job.attempt),
-    });
-  }
-}
 
 function authorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
