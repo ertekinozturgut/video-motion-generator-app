@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PROVIDER_LABEL, type ProviderKind } from "@/lib/providers/types";
+import {
+  Card, CardHeader, Chip, Dot, EmptyState, Field, Notice, btn, field, type Tone,
+} from "@/components/ui";
 
 export interface ProviderRow {
   provider_id: string;
@@ -15,6 +18,7 @@ export interface ProviderRow {
   last_latency_ms: number | null;
   last_error: string | null;
   model_count: number;
+  families: string[];
   last4: string | null;
 }
 
@@ -28,17 +32,28 @@ const HINT: Record<ProviderKind, string> = {
   omniroute: "Kendi barındırdığın gateway. Yerel adres girersen yalnız local worker kullanır.",
 };
 
-export function ProviderManager({ providers }: { providers: ProviderRow[] }) {
+const STATUS_TONE: Record<string, Tone> = {
+  active: "good", degraded: "bad", disabled: "idle", unverified: "idle",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  active: "Doğrulandı", degraded: "Sorunlu", disabled: "Kapalı", unverified: "Sınanmadı",
+};
+
+export function ProviderManager({
+  providers, familyCount,
+}: {
+  providers: ProviderRow[];
+  familyCount: number;
+}) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [kind, setKind] = useState<ProviderKind>("openai");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ tone: Tone; text: string } | null>(null);
 
   async function call(url: string, body: unknown, method = "POST") {
     setBusy(true);
-    setError(null);
     setNotice(null);
     try {
       const res = await fetch(url, {
@@ -50,7 +65,7 @@ export function ProviderManager({ providers }: { providers: ProviderRow[] }) {
       if (!res.ok) throw new Error(json.error ?? "İşlem başarısız");
       return json;
     } catch (e) {
-      setError((e as Error).message);
+      setNotice({ tone: "bad", text: (e as Error).message });
       return null;
     } finally {
       setBusy(false);
@@ -79,7 +94,7 @@ export function ProviderManager({ providers }: { providers: ProviderRow[] }) {
       config,
     });
     if (result) {
-      if (result.note) setNotice(result.note);
+      setNotice({ tone: result.note ? "attention" : "good", text: result.note ?? "Sağlayıcı kaydedildi. Sıradaki adım: bağlantıyı sına." });
       setAdding(false);
       router.refresh();
     }
@@ -90,8 +105,11 @@ export function ProviderManager({ providers }: { providers: ProviderRow[] }) {
     if (r) {
       setNotice(
         r.ok
-          ? `Bağlantı çalışıyor (${r.latency_ms} ms)${r.json_mode_verified ? ", JSON modu doğrulandı" : ", JSON modu doğrulanamadı"}`
-          : `Bağlanılamadı: ${r.detail}`
+          ? {
+              tone: r.json_mode_verified ? "good" : "attention",
+              text: `Bağlantı çalışıyor (${r.latency_ms} ms)${r.json_mode_verified ? ", JSON modu doğrulandı" : ", JSON modu doğrulanamadı"}`,
+            }
+          : { tone: "bad", text: `Bağlanılamadı: ${r.detail}` }
       );
       router.refresh();
     }
@@ -100,129 +118,161 @@ export function ProviderManager({ providers }: { providers: ProviderRow[] }) {
   async function syncModels(id: string) {
     const r = await call(`/api/providers/${id}/models`, { mode: "sync" });
     if (r) {
-      setNotice(r.note ?? `${r.synced} model senkronlandı`);
+      setNotice({ tone: "good", text: r.note ?? `${r.synced} model senkronlandı` });
       router.refresh();
     }
   }
 
   return (
-    <div className="space-y-8">
-      {notice && (
-        <p className="rounded border border-active/40 bg-active/10 px-3 py-2 text-sm">{notice}</p>
-      )}
-      {error && (
-        <p className="rounded border border-bad/40 bg-bad/10 px-3 py-2 text-sm">{error}</p>
+    <div className="space-y-6">
+      {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
+
+      {providers.length > 0 && familyCount < 2 && (
+        <Notice tone="attention">
+          Şu an {familyCount === 0 ? "hiç" : "yalnız tek"} model ailesi var. Kontrol
+          adımları üreten adımdan farklı bir aileye bakmak zorunda; ikinci bir aile
+          eklenmeden plan kontrolü ve video kontrolü atanamaz.
+        </Notice>
       )}
 
-      {providers.length === 0 && !adding && (
-        <div className="rounded border border-line bg-panel p-8">
-          <p className="mb-1">Henüz bir sağlayıcı yok.</p>
-          <p className="mb-5 text-sm text-muted">
-            Planlama ve kontrol adımlarının çalışması için en az iki farklı
-            model ailesi gerekiyor.
-          </p>
-          <button onClick={() => setAdding(true)}
-                  className="rounded bg-text px-4 py-2 text-sm font-medium text-ink">
-            Sağlayıcı ekle
-          </button>
-        </div>
-      )}
-
-      {providers.length > 0 && (
-        <ul className="divide-y divide-line rounded border border-line bg-panel">
-          {providers.map((p) => (
-            <ProviderItem key={p.provider_id} provider={p} busy={busy}
-                          onTest={testProvider} onSync={syncModels}
-                          onDelete={async (id) => {
-                            if (!confirm(`${p.label} silinsin mi? Anahtarı da kaldırılır.`)) return;
-                            const r = await call(`/api/providers/${id}`, null, "DELETE");
-                            if (r) router.refresh();
-                          }} />
-          ))}
-        </ul>
-      )}
-
-      {providers.length > 0 && !adding && (
-        <button onClick={() => setAdding(true)}
-                className="rounded border border-line px-4 py-2 text-sm hover:bg-raised">
-          Sağlayıcı ekle
-        </button>
+      {providers.length === 0 && !adding ? (
+        <EmptyState
+          title="Henüz bir sağlayıcı yok."
+          detail="Planlama ve kontrol adımlarının çalışması için en az iki farklı model ailesi gerekiyor — örneğin bir GPT, bir Claude."
+          action={
+            <button onClick={() => setAdding(true)} className={btn.primary}>
+              Sağlayıcı ekle
+            </button>
+          }
+        />
+      ) : (
+        providers.length > 0 && (
+          <Card>
+            <CardHeader
+              title={`${providers.length} sağlayıcı`}
+              hint={`${familyCount} kullanılabilir model ailesi.`}
+              action={
+                !adding && (
+                  <button onClick={() => setAdding(true)} className={btn.ghost}>
+                    Sağlayıcı ekle
+                  </button>
+                )
+              }
+            />
+            <ul className="divide-y divide-line">
+              {providers.map((p) => (
+                <ProviderItem
+                  key={p.provider_id}
+                  provider={p}
+                  busy={busy}
+                  onTest={testProvider}
+                  onSync={syncModels}
+                  onDelete={async (id) => {
+                    if (!confirm(`${p.label} silinsin mi? Anahtarı da kaldırılır.`)) return;
+                    const r = await call(`/api/providers/${id}`, null, "DELETE");
+                    if (r) {
+                      setNotice({ tone: "good", text: `${p.label} silindi.` });
+                      router.refresh();
+                    }
+                  }}
+                />
+              ))}
+            </ul>
+          </Card>
+        )
       )}
 
       {adding && (
-        <form action={addProvider} className="space-y-5 rounded border border-line bg-panel p-5">
-          <div className="flex flex-wrap gap-2">
-            {KINDS.map((k) => (
-              <button key={k} type="button" onClick={() => setKind(k)}
-                      className={`rounded border px-3 py-1.5 text-sm ${
-                        kind === k ? "border-text bg-raised" : "border-line text-muted hover:text-text"
-                      }`}>
-                {PROVIDER_LABEL[k]}
-              </button>
-            ))}
-          </div>
-
-          <p className="text-sm text-muted">{HINT[kind]}</p>
-
-          <Row label="Ad">
-            <input name="label" required placeholder={`${PROVIDER_LABEL[kind]} — üretim`}
-                   className={input} />
-          </Row>
-
-          {(kind === "azure_foundry" || kind === "omniroute") && (
-            <Row label="Adres" hint="https zorunlu">
-              <input name="base_url" required
-                     placeholder={kind === "azure_foundry"
-                       ? "https://<kaynak>.services.ai.azure.com"
-                       : "https://gateway.example.com/v1"}
-                     className={input} />
-            </Row>
-          )}
-
-          <Row label="API anahtarı" hint="Kaydedildikten sonra okunamaz">
-            <input name="api_key" type="password" required autoComplete="off" className={input} />
-          </Row>
-
-          {kind === "azure_foundry" && (
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Row label="api-version">
-                <input name="api_version" defaultValue="2024-10-21" className={input} />
-              </Row>
-              <Row label="Model ailesi">
-                <select name="flavor" defaultValue="openai" className={input}>
-                  <option value="openai">OpenAI deployment</option>
-                  <option value="inference">Diğer (Llama, Mistral…)</option>
-                </select>
-              </Row>
-              <Row label="Kimlik doğrulama">
-                <select name="auth_mode" defaultValue="api_key" className={input}>
-                  <option value="api_key">API anahtarı</option>
-                  <option value="entra">Entra ID</option>
-                </select>
-              </Row>
+        <Card>
+          <CardHeader
+            title="Sağlayıcı ekle"
+            hint="Anahtar sunucuda şifrelenir; bu formdan sonra hiçbir ekranda tekrar görünmez."
+          />
+          <form action={addProvider} className="space-y-5 p-5">
+            <div className="flex flex-wrap gap-2">
+              {KINDS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setKind(k)}
+                  aria-pressed={kind === k}
+                  className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                    kind === k
+                      ? "border-text bg-raised text-text"
+                      : "border-line text-muted hover:text-text"
+                  }`}
+                >
+                  {PROVIDER_LABEL[k]}
+                </button>
+              ))}
             </div>
-          )}
 
-          <Row label="Veri politikası"
-               hint="Senaryo metnini gören adımlar yalnız &quot;eğitimde kullanılmaz&quot; kabul eder">
-            <select name="data_policy" defaultValue="unknown" className={input}>
-              <option value="no_training">Eğitimde kullanılmaz</option>
-              <option value="unknown">Bilinmiyor</option>
-              <option value="may_train">Eğitimde kullanılabilir</option>
-            </select>
-          </Row>
+            <p className="text-sm text-muted">{HINT[kind]}</p>
 
-          <div className="flex gap-3">
-            <button type="submit" disabled={busy}
-                    className="rounded bg-text px-4 py-2 text-sm font-medium text-ink disabled:opacity-40">
-              {busy ? "Kaydediliyor" : "Kaydet"}
-            </button>
-            <button type="button" onClick={() => setAdding(false)}
-                    className="rounded border border-line px-4 py-2 text-sm text-muted hover:text-text">
-              Vazgeç
-            </button>
-          </div>
-        </form>
+            <Field label="Ad">
+              <input name="label" required placeholder={`${PROVIDER_LABEL[kind]} — üretim`} className={field} />
+            </Field>
+
+            {(kind === "azure_foundry" || kind === "omniroute") && (
+              <Field label="Adres" hint="https zorunlu">
+                <input
+                  name="base_url"
+                  required
+                  placeholder={
+                    kind === "azure_foundry"
+                      ? "https://<kaynak>.services.ai.azure.com"
+                      : "https://gateway.example.com/v1"
+                  }
+                  className={field}
+                />
+              </Field>
+            )}
+
+            <Field label="API anahtarı" hint="Kaydedildikten sonra okunamaz">
+              <input name="api_key" type="password" required autoComplete="off" className={field} />
+            </Field>
+
+            {kind === "azure_foundry" && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="api-version">
+                  <input name="api_version" defaultValue="2024-10-21" className={field} />
+                </Field>
+                <Field label="Model ailesi">
+                  <select name="flavor" defaultValue="openai" className={field}>
+                    <option value="openai">OpenAI deployment</option>
+                    <option value="inference">Diğer (Llama, Mistral…)</option>
+                  </select>
+                </Field>
+                <Field label="Kimlik doğrulama">
+                  <select name="auth_mode" defaultValue="api_key" className={field}>
+                    <option value="api_key">API anahtarı</option>
+                    <option value="entra">Entra ID</option>
+                  </select>
+                </Field>
+              </div>
+            )}
+
+            <Field
+              label="Veri politikası"
+              hint="Senaryoyu gören adımlar yalnız &quot;eğitimde kullanılmaz&quot; kabul eder"
+            >
+              <select name="data_policy" defaultValue="unknown" className={field}>
+                <option value="no_training">Eğitimde kullanılmaz</option>
+                <option value="unknown">Bilinmiyor</option>
+                <option value="may_train">Eğitimde kullanılabilir</option>
+              </select>
+            </Field>
+
+            <div className="flex gap-3 pt-1">
+              <button type="submit" disabled={busy} className={btn.primary}>
+                {busy ? "Kaydediliyor" : "Kaydet"}
+              </button>
+              <button type="button" onClick={() => setAdding(false)} className={btn.quiet}>
+                Vazgeç
+              </button>
+            </div>
+          </form>
+        </Card>
       )}
     </div>
   );
@@ -238,20 +288,24 @@ function ProviderItem({
   onDelete: (id: string) => void;
 }) {
   const [modelKey, setModelKey] = useState("");
-  const tone = p.status === "active" ? "bg-good" : p.status === "degraded" ? "bg-bad" : "bg-idle";
+  const tone = STATUS_TONE[p.status] ?? "idle";
 
   return (
-    <li className="px-4 py-4">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${tone}`} aria-hidden />
+    <li className="px-5 py-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <Dot tone={tone} />
         <span className="font-medium">{p.label}</span>
         <span className="text-sm text-muted">{PROVIDER_LABEL[p.kind]}</span>
         {p.last4 && <span className="tnum text-sm text-muted">••••{p.last4}</span>}
-        <span className="tnum ml-auto text-sm text-muted">{p.model_count} model</span>
+        <span className="ml-auto flex flex-wrap items-center gap-2">
+          <Chip tone={tone}>{STATUS_LABEL[p.status] ?? p.status}</Chip>
+          <span className="tnum text-sm text-muted">{p.model_count} model</span>
+        </span>
       </div>
 
-      <div className="mt-1 flex flex-wrap gap-x-4 text-sm text-muted">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
         {p.last_latency_ms != null && <span className="tnum">{p.last_latency_ms} ms</span>}
+        {p.families.length > 0 && <span>{p.families.join(", ")}</span>}
         {p.data_policy !== "no_training" && (
           <span className="text-attention">
             {p.data_policy === "may_train" ? "eğitimde kullanılabilir" : "veri politikası bilinmiyor"}
@@ -262,43 +316,30 @@ function ProviderItem({
         )}
       </div>
 
-      {p.last_error && (
-        <p className="mt-2 text-sm text-bad">{p.last_error}</p>
-      )}
+      {p.last_error && <p className="mt-2 break-words text-sm text-bad">{p.last_error}</p>}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <input value={modelKey} onChange={(e) => setModelKey(e.target.value)}
-               placeholder={p.kind === "azure_foundry" ? "deployment adı" : "model adı"}
-               className={`${input} max-w-56`} />
-        <button disabled={busy || !modelKey.trim()}
-                onClick={() => onTest(p.provider_id, modelKey.trim())}
-                className="rounded border border-line px-3 py-1.5 text-sm hover:bg-raised disabled:opacity-40">
+        <input
+          value={modelKey}
+          onChange={(e) => setModelKey(e.target.value)}
+          placeholder={p.kind === "azure_foundry" ? "deployment adı" : "model adı"}
+          aria-label="Sınanacak model"
+          className={`${field} max-w-56`}
+        />
+        <button
+          disabled={busy || !modelKey.trim()}
+          onClick={() => onTest(p.provider_id, modelKey.trim())}
+          className={btn.ghost}
+        >
           Bağlantıyı sına
         </button>
-        <button disabled={busy} onClick={() => onSync(p.provider_id)}
-                className="rounded border border-line px-3 py-1.5 text-sm hover:bg-raised disabled:opacity-40">
+        <button disabled={busy} onClick={() => onSync(p.provider_id)} className={btn.ghost}>
           Modelleri getir
         </button>
-        <button disabled={busy} onClick={() => onDelete(p.provider_id)}
-                className="ml-auto rounded px-3 py-1.5 text-sm text-muted hover:text-bad">
+        <button disabled={busy} onClick={() => onDelete(p.provider_id)} className={`${btn.danger} ml-auto`}>
           Sil
         </button>
       </div>
     </li>
-  );
-}
-
-const input =
-  "w-full rounded border border-line bg-ink px-3 py-2 text-sm text-text placeholder:text-muted/60";
-
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <div className="mb-1.5 flex items-baseline justify-between gap-3">
-        <span className="text-sm font-medium">{label}</span>
-        {hint && <span className="text-xs text-muted">{hint}</span>}
-      </div>
-      {children}
-    </label>
   );
 }
