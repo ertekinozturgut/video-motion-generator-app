@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { handleJob, type JobRow } from "./handlers";
+import { logEvent } from "./dispatch";
 
 /**
  * Kuyruktan iş alıp yürüten tek döngü.
@@ -49,19 +50,46 @@ export async function drainQueue({
   draining = true;
   try {
     for (const job of claimed) {
+      const started = Date.now();
+      // Her işin başladığı ve bittiği kayda geçer. Bir iş sessizce
+      // kaybolduğunda "hiç başladı mı" sorusunun cevabı burada olmalı.
+      await logEvent({
+        ownerId: job.owner_id, runId: job.run_id, motionId: job.motion_id,
+        eventType: "job_started",
+        message: `${job.job_type} başladı (deneme ${job.attempt}, worker ${workerId})`,
+        metadata: { job_id: job.job_id, job_type: job.job_type, attempt: job.attempt, worker_id: workerId },
+      });
+
       try {
         await handleJob(job);
         await db.rpc("complete_job", { p_job_id: job.job_id });
         done++;
+        await logEvent({
+          ownerId: job.owner_id, runId: job.run_id, motionId: job.motion_id,
+          eventType: "job_done",
+          message: `${job.job_type} tamamlandı (${Date.now() - started} ms)`,
+          metadata: { job_id: job.job_id, job_type: job.job_type, duration_ms: Date.now() - started },
+        });
       } catch (e) {
         // Hata yutulmaz ama döngüyü de durdurmaz: bir işin patlaması
         // sıradakini engellememeli.
+        const message = (e as Error).message;
         await db.rpc("fail_job", {
           p_job_id: job.job_id,
-          p_error: (e as Error).message.slice(0, 500),
+          p_error: message.slice(0, 500),
           p_retry_in_seconds: Math.min(300, 30 * 2 ** job.attempt),
         });
         failed++;
+        await logEvent({
+          ownerId: job.owner_id, runId: job.run_id, motionId: job.motion_id,
+          eventType: "job_failed",
+          message: `${job.job_type} başarısız: ${message.slice(0, 300)}`,
+          metadata: {
+            job_id: job.job_id, job_type: job.job_type,
+            attempt: job.attempt, duration_ms: Date.now() - started,
+            error: message.slice(0, 1000),
+          },
+        });
       }
     }
   } finally {
