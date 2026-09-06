@@ -7,6 +7,7 @@
  */
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
+import { CopyButtonClient } from "./CopyButtonClient";
 
 export type Tone = "idle" | "active" | "good" | "attention" | "bad";
 
@@ -176,5 +177,24 @@ export function Notice({ tone, children }: { tone: Tone; children: ReactNode }) 
     <p role="status" className={`rounded-md border px-3.5 py-2.5 text-sm ${map[tone]}`}>
       {children}
     </p>
+  );
+}
+
+/* ------------------------------------------------------------------ kayıtlar */
+
+/**
+ * Prompt ve yanıt gövdeleri okunmak için değil, başka bir yere taşınmak
+ * için açılıyor genelde. Kopyala düğmesi olmayan bir log görüntüleyici
+ * insanı fareyle metin seçmeye zorlar; uzun JSON'da bu işkence.
+ */
+export function CopyButton({ value, label = "Kopyala" }: { value: string; label?: string }) {
+  return <CopyButtonClient value={value} label={label} />;
+}
+
+export function Mono({ children }: { children: ReactNode }) {
+  return (
+    <pre className="tnum max-h-96 overflow-auto rounded-md border border-line bg-ink px-3 py-2.5 text-xs leading-relaxed text-text">
+      {children}
+    </pre>
   );
 }
