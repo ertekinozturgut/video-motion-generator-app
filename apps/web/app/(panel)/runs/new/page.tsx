@@ -22,8 +22,6 @@ export default function NewRunPage() {
           audience_hint: formData.get("audience_hint"),
           format: formData.get("format"),
           budget_limit: formData.get("budget_limit"),
-          stub_motion_count: formData.get("stub_motion_count"),
-          dry_run: true,
         }),
       });
       const body = await res.json();
@@ -76,19 +74,19 @@ export default function NewRunPage() {
               <option value="shorts_9_16">Shorts 9:16</option>
             </select>
           </Field>
-          <Field label="Bütçe" hint="USD">
+          <Field label="Bütçe" hint="USD · 0 = sınırsız">
             <input name="budget_limit" type="number" min="0" max="500" step="0.5"
                    defaultValue="5" className={`${inputClass} tnum`} />
           </Field>
-          <Field label="Motion sayısı" hint="Sprint 1 provası">
-            <input name="stub_motion_count" type="number" min="1" max="24"
-                   defaultValue="8" className={`${inputClass} tnum`} />
-          </Field>
         </div>
 
-        <div className="rounded border border-line bg-panel p-3 text-sm text-muted">
-          Bu sürümde adımlar taklit ediliyor: model çağrısı yapılmıyor, render
-          alınmıyor, ücret oluşmuyor.
+        {/* Sahne sayısı artık sorulmuyor: planı model senaryodan çıkarıyor.
+            Kullanıcıya sonucu belirlemeyen bir sayı sormak, onu yanıltır. */}
+        <div className="rounded border border-line bg-panel p-3 text-sm leading-relaxed text-muted">
+          Adımlar gerçek model çağrısı yapıyor ve ücret oluşuyor. Bütçe sınırına
+          ulaşıldığında çalışma kendini durdurur. Sistem önce iddiaları çıkarır;
+          emin olmadıklarını işaretler ve senin onayını bekler — plan, sen
+          onaylamadan üretilmez.
         </div>
 
         {error && (

@@ -49,6 +49,83 @@ export async function handleJob(job: JobRow): Promise<void> {
   }
 }
 
+/**
+ * Bütçe kapısı. Model çağıran her adım buradan geçiyor.
+ *
+ * Bütçe alanı formda sorulup veritabanına yazılıyordu ama hiçbir yerde
+ * okunmuyordu: kullanıcıya verilmiş, tutulmayan bir söz. Para harcayan
+ * bir sistemde bu, arayüz kusuru değil güven kusuru.
+ *
+ * Sınır çağrıdan ÖNCE kontrol ediliyor; sonrasında kontrol etmek "bütçe
+ * aşıldı" demenin pahalı yolu olurdu. Aşıldığında iş yeniden denenmiyor
+ * — tekrar denemek aynı sınıra çarpar, sadece daha çok kayıt üretir.
+ * Çalışma duruyor ve insana geçiyor: sınırı yükseltmek onun kararı.
+ */
+async function withinBudget(job: JobRow): Promise<boolean> {
+  const db = createAdminClient();
+  const [{ data: run }, { data: spentRows }] = await Promise.all([
+    db.from("video_runs").select("budget_limit,status").eq("run_id", job.run_id).single(),
+    db.from("attempts").select("cost_usd").eq("run_id", job.run_id),
+  ]);
+
+  const limit = Number((run as { budget_limit?: number } | null)?.budget_limit ?? 0);
+  if (!Number.isFinite(limit) || limit <= 0) return true; // 0 = sınırsız
+
+  // Sınır, attempts'e yazılan maliyete dayanıyor; maliyet de modelin
+  // fiyat bilgisine. Fiyatı girilmemiş bir model 0 sayılır ve bütçeyi
+  // hiç tüketmez. Bu, ücretsiz modeller için doğru; ücretli bir modelin
+  // fiyatı /settings/providers ekranından girilmemişse sınır o model
+  // için işlemez. Sessiz bir varsayım yapmıyoruz: bilinmeyen fiyata
+  // uydurma bir rakam koymak, yanlış bir güvence olurdu.
+
+  const spent = ((spentRows ?? []) as Array<{ cost_usd: number }>)
+    .reduce((sum, a) => sum + Number(a.cost_usd ?? 0), 0);
+  if (spent < limit) return true;
+
+  await stopRun(
+    job,
+    (run as { status: string }).status,
+    `Bütçe sınırı aşıldı: ${spent.toFixed(4)} / ${limit.toFixed(2)} USD. ${job.job_type} çalıştırılmadı.`
+  );
+  return false;
+}
+
+/**
+ * Çalışmayı durdurur. Hedef durumu durum makinesi seçiyor: bulunduğu
+ * yerden hangisine gidilebiliyorsa o. Sabit bir hedef yazmak, akışın
+ * her aşamasında geçerli olmayan bir geçiş denemek demekti.
+ */
+const STOPPED = ["NEEDS_HUMAN", "CANCELLED", "FAILED_TECHNICAL", "COMPLETED"];
+
+async function stopRun(job: JobRow, from: string, reason: string) {
+  const db = createAdminClient();
+
+  // Zaten durmuş bir çalışmayı yeniden durdurmuyoruz. Sıradaki hedefi
+  // körlemesine arasaydık NEEDS_HUMAN'daki bir çalışma CANCELLED'a
+  // düşerdi: insanın kurtarabileceği bir durumdan, kurtaramayacağı bir
+  // duruma. Durdurmak geri almaktan kolay olmamalı.
+  // Sıra önemli: kurtarılabilir durumlar önce. CANCELLED'ın çıkışı yok,
+  // oraya düşen bir çalışma bütçe yükseltilse bile devam edemez. Bütçe
+  // aşımı için FAILED_TECHNICAL tam doğru etiket değil ama oradan
+  // RECEIVED'a dönülebiliyor; ne olduğunu olay kaydındaki metin
+  // söylüyor. Yanlış etiketli ama kurtarılabilir bir durum, doğru
+  // etiketli ama geri dönüşsüz bir durumdan iyidir.
+  const target = STOPPED.includes(from)
+    ? undefined
+    : (["NEEDS_HUMAN", "FAILED_TECHNICAL", "CANCELLED"] as const).find((t) => {
+        try { assertRunTransition(from as never, t); return true; } catch { return false; }
+      });
+
+  if (target) {
+    await db.from("video_runs").update({ status: target }).eq("run_id", job.run_id);
+  }
+  await logEvent({
+    ownerId: job.owner_id, runId: job.run_id, motionId: job.motion_id,
+    eventType: "run_stopped", prevState: from, newState: target ?? from,
+    message: reason,
+  });
+}
+
 /* ---------- run seviyesi ---------- */
 
 /**
@@ -57,6 +134,8 @@ export async function handleJob(job: JobRow): Promise<void> {
  * ayrı çağrılar senaryoyu üç kez göndermek demekti.
  */
 async function planClaims(job: JobRow) {
+  if (!(await withinBudget(job))) return;
+
   const db = createAdminClient();
 
   const { data: run } = await db
@@ -113,6 +192,8 @@ async function planClaims(job: JobRow) {
 
 /** Onaylı iddialardan motion planı. Tek batch çağrı. */
 async function planMotions(job: JobRow) {
+  if (!(await withinBudget(job))) return;
+
   const db = createAdminClient();
 
   const { data: run } = await db
@@ -198,6 +279,8 @@ async function planMotions(job: JobRow) {
  * burada tekrar edilmiyor.
  */
 async function planQa(job: JobRow) {
+  if (!(await withinBudget(job))) return;
+
   const db = createAdminClient();
 
   const [{ data: run }, { data: motions }] = await Promise.all([
@@ -414,6 +497,8 @@ async function genAssets(job: JobRow) {
  * teknik arıza değil — iş yeniden denenmiyor, motion insana gidiyor.
  */
 async function genSpec(job: JobRow) {
+  if (!(await withinBudget(job))) return;
+
   const db = createAdminClient();
   const motion = await loadMotion(job);
   const plan = motion.motion_plan_json as MotionPlan;
@@ -521,6 +606,8 @@ async function renderMotion(job: JobRow) {
  * sorun üretimde değil girdide, insana gidiyor.
  */
 async function qaMotion(job: JobRow) {
+  if (!(await withinBudget(job))) return;
+
   const db = createAdminClient();
   const motion = await loadMotion(job);
   const spec = motion.remotion_spec_json as SceneSpec | null;

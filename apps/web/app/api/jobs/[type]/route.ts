@@ -3,8 +3,11 @@ import { drainQueue } from "@/lib/jobs/runner";
 
 /**
  * Adım başına ayrı route → adım başına ayrı maxDuration.
- * Sprint 1'de hepsi stub olduğu için 60 yeterli; Sprint 3'te planlama
- * route'ları 300'e çıkacak.
+ *
+ * 60, Hobby planının tavanı; yükseltilemez. Model çağrılarının süre
+ * bütçesi (callStructured) bu sayının altında kalacak şekilde
+ * seçiliyor — üstünde olsaydı fonksiyon çağrı bitmeden öldürülür,
+ * elimizde ne sonuç ne de hata kaydı kalırdı.
  */
 export const maxDuration = 60;
 

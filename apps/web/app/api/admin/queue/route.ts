@@ -20,8 +20,8 @@ const Body = z.object({
   job_id: z.string().uuid().optional(),
 });
 
-// Sıradakileri işlemek stub adımlarda saniyeler sürüyor; Sprint 3'te
-// gerçek çağrılar gelince bu route da 300'e çıkacak.
+// Hobby planının tavanı 60 sn ve yükseltilemiyor. Bir turda bitmeyen
+// kuyruk kalıcı; düğmeye tekrar basmak kaldığı yerden devam eder.
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {

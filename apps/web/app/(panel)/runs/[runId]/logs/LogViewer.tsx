@@ -133,7 +133,7 @@ function AiCalls({ traces, query }: { traces: TraceRow[]; query: string }) {
     return (
       <EmptyState
         title="Henüz bir AI çağrısı kaydedilmedi."
-        detail="Pipeline adımları şu an taklit ediliyor (stub); model çağrısı yapılmıyor, token harcanmıyor. Gerçek çağrılar Sprint 3 ile geldiğinde her adımın promptu, yanıtı ve token sayacı burada görünecek."
+        detail="Bu çalışmada henüz model çağrısı yapılmadı. Adım çalıştığında gönderilen prompt, dönen yanıt, token sayacı ve maliyet burada tek tek görünür — başarısız denemeler dahil."
       />
     );
   }

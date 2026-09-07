@@ -9,9 +9,8 @@ const CreateRunSchema = z.object({
   audience_hint: z.string().trim().max(300).optional(),
   format: z.enum(["youtube_16_9", "shorts_9_16"]).default("youtube_16_9"),
   language: z.string().default("tr"),
+  /** 0 = sınırsız. Sınır lib/jobs/handlers.ts içindeki bütçe kapısında uygulanıyor. */
   budget_limit: z.coerce.number().min(0).max(500).default(5),
-  dry_run: z.boolean().default(true),
-  stub_motion_count: z.coerce.number().int().min(1).max(24).default(8),
 });
 
 export async function POST(request: NextRequest) {
@@ -35,11 +34,12 @@ export async function POST(request: NextRequest) {
       title: input.title || null,
       source_script: input.script,
       budget_limit: input.budget_limit,
+      // dry_run kaldırıldı: adımlar gerçekten çalışıyor, "kuru çalıştırma"
+      // yazan bir kayıt para harcandığı hâlde harcanmadığını söylerdi.
       settings_json: {
         format: input.format,
         language: input.language,
         audience_hint: input.audience_hint ?? null,
-        dry_run: input.dry_run,
       },
     })
     .select("run_id")
@@ -53,12 +53,7 @@ export async function POST(request: NextRequest) {
     message: `${input.script.length} karakterlik senaryo alındı`,
   });
 
-  await enqueue({
-    ownerId: user.id,
-    runId: run.run_id,
-    jobType: "PLAN_CLAIMS",
-    payload: { stub_motion_count: input.stub_motion_count },
-  });
+  await enqueue({ ownerId: user.id, runId: run.run_id, jobType: "PLAN_CLAIMS" });
 
   return NextResponse.json({ run_id: run.run_id }, { status: 201 });
 }
