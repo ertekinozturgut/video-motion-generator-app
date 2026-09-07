@@ -27,11 +27,14 @@ export function Live({
   initialStatus,
   initialMotions,
   initialEvents,
+  flaggedCount = 0,
 }: {
   runId: string;
   initialStatus: string;
   initialMotions: TimelineMotion[];
   initialEvents: EventRow[];
+  /** Kaç iddianın insan kararı beklediği; onay banner'ında yazıyor. */
+  flaggedCount?: number;
 }) {
   const [status, setStatus] = useState(initialStatus);
   const [motions, setMotions] = useState(initialMotions);
@@ -90,9 +93,12 @@ export function Live({
 
       {status === "AWAITING_APPROVAL" && (
         <div className="rounded-lg border border-attention/40 bg-attention/10 p-4">
-          <p className="text-sm">
-            Doğruluğundan emin olunmayan bilgiler işaretlendi. Üretim, sen
-            bunları gözden geçirene kadar duruyor.
+          <p className="text-sm leading-relaxed">
+            {flaggedCount > 0
+              ? `${flaggedCount} iddianın doğruluğundan model emin değil.`
+              : "İddia dökümü onayını bekliyor."}{" "}
+            Plan, sen karar verene kadar üretilmiyor — reddettiğin iddialar
+            plana hiç gösterilmez.
           </p>
           <Link
             href={`/runs/${runId}/approval`}

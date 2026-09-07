@@ -14,7 +14,8 @@ export default async function RunPage({
   const supabase = await createClient();
 
   const [{ data: run }, { data: motions }, { data: events }] = await Promise.all([
-    supabase.from("video_runs").select("run_id,title,status,created_at").eq("run_id", runId).single(),
+    supabase.from("video_runs")
+      .select("run_id,title,status,created_at,claim_ledger_json").eq("run_id", runId).single(),
     supabase.from("motions")
       .select("motion_id,motion_index,name,start_ms,end_ms,status")
       .eq("run_id", runId).order("motion_index"),
@@ -24,6 +25,12 @@ export default async function RunPage({
   ]);
 
   if (!run) notFound();
+
+  // Sayı flagged_claim_ids'ten değil needs_review'dan sayılıyor: ikisi
+  // çeliştiğinde ekrandaki sayı, onay ekranında gerçekten karar
+  // bekleyen satır sayısıyla aynı kalmalı.
+  const ledger = run.claim_ledger_json as { claims?: Array<{ needs_review?: boolean }> } | null;
+  const flaggedCount = (ledger?.claims ?? []).filter((c) => c.needs_review).length;
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -73,6 +80,7 @@ export default async function RunPage({
         initialStatus={run.status}
         initialMotions={motions ?? []}
         initialEvents={events ?? []}
+        flaggedCount={flaggedCount}
       />
     </div>
   );

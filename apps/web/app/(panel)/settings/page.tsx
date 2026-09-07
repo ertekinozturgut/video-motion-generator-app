@@ -109,7 +109,7 @@ export default async function AdminOverviewPage() {
           title={blocking.length === 0 ? "Sistem hazır" : `${blocking.length} eksik var`}
           hint={
             blocking.length === 0
-              ? "Tüm önkoşullar sağlandı. Sprint 3 devreye girince gerçek model çağrıları bu dağıtımı kullanacak."
+              ? "Tüm önkoşullar sağlandı. Çalışmalar bu dağıtımdaki modelleri kullanıyor."
               : "Aşağıdaki maddeler tamamlanmadan üretim çalıştırması beklendiği gibi ilerlemez."
           }
         />

@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * yanıt). Ayrımın sebebi boyut — attempts liste ekranlarında taranıyor,
  * prompt gövdeleri orada olsa her listeleme megabaytlar çekerdi.
  *
- * Sprint 3'te route(step).structured() sarmalayıcısı buraya bağlanacak;
+ * callStructured() buraya bağlı;
  * çağrı yapan her yer bunu çağırdığı sürece panel dolu kalır. Ayrı ayrı
  * insert yazılmamalı, yoksa bir gün biri trace yazmayı unutur ve o adım
  * panelde görünmez olur.
