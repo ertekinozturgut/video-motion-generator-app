@@ -284,11 +284,18 @@ async function report(job: JobRow) {
 
   const [{ data: totals }, { data: run }, { data: motions }] = await Promise.all([
     db.from("attempts").select("cost_usd").eq("run_id", job.run_id),
-    db.from("video_runs").select("title,style_contract_json").eq("run_id", job.run_id).single(),
+    db.from("video_runs").select("title,status,style_contract_json").eq("run_id", job.run_id).single(),
     db.from("motions")
       .select("motion_index,name,status,remotion_spec_json")
       .eq("run_id", job.run_id).order("motion_index"),
   ]);
+
+  // Son motion'lar farklı invocation'larda aynı anda bitebilir ve her
+  // biri REPORT kuyruğa yazabilir. İlki çalışmayı kapattıktan sonra
+  // ikincisi COMPLETED'dan çıkış aramaya kalkar ve geçersiz geçişle
+  // patlardı. Kapanmış çalışma için rapor işi sessizce bitiyor.
+  const runStatus = (run as { status?: string } | null)?.status;
+  if (runStatus === "COMPLETED" || runStatus === "NEEDS_HUMAN") return;
 
   const cost = ((totals ?? []) as Array<{ cost_usd: number }>)
     .reduce((sum, a) => sum + Number(a.cost_usd ?? 0), 0);
@@ -627,7 +634,7 @@ async function advance(job: JobRow, from: MotionStatus, to: MotionStatus, messag
 async function needsHuman(job: JobRow, from: MotionStatus, message: string) {
   const db = createAdminClient();
   assertMotionTransition(from, "NEEDS_HUMAN");
-  await db.from("motions").update({ status: "NEEDS_HUMAN", last_error: null }).eq("motion_id", job.motion_id!);
+  await db.from("motions").update({ status: "NEEDS_HUMAN" }).eq("motion_id", job.motion_id!);
   await logEvent({
     ownerId: job.owner_id, runId: job.run_id, motionId: job.motion_id,
     eventType: "motion_state", prevState: from, newState: "NEEDS_HUMAN", message,
