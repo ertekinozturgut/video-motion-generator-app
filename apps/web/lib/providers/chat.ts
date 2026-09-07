@@ -17,7 +17,7 @@ export interface ChatResult {
 }
 
 export async function chatComplete({
-  provider, modelKey, messages, jsonMode, temperature, maxTokens,
+  provider, modelKey, messages, jsonMode, temperature, maxTokens, timeoutMs,
 }: {
   provider: ProviderConfig;
   modelKey: string;
@@ -25,17 +25,19 @@ export async function chatComplete({
   jsonMode: boolean;
   temperature: number;
   maxTokens: number;
+  /** Çağıran taraf bütçeden pay ayırıyor; burada sabit bir değer yok. */
+  timeoutMs: number;
 }): Promise<ChatResult> {
   return provider.kind === "anthropic"
-    ? anthropic({ provider, modelKey, messages, temperature, maxTokens })
-    : openaiCompatible({ provider, modelKey, messages, jsonMode, temperature, maxTokens });
+    ? anthropic({ provider, modelKey, messages, temperature, maxTokens, timeoutMs })
+    : openaiCompatible({ provider, modelKey, messages, jsonMode, temperature, maxTokens, timeoutMs });
 }
 
 async function openaiCompatible({
-  provider, modelKey, messages, jsonMode, temperature, maxTokens,
+  provider, modelKey, messages, jsonMode, temperature, maxTokens, timeoutMs,
 }: {
   provider: ProviderConfig; modelKey: string; messages: ChatMessage[];
-  jsonMode: boolean; temperature: number; maxTokens: number;
+  jsonMode: boolean; temperature: number; maxTokens: number; timeoutMs: number;
 }): Promise<ChatResult> {
   const body: Record<string, unknown> = {
     model: modelKey,
@@ -49,7 +51,7 @@ async function openaiCompatible({
   // sadece yardım.
   if (jsonMode) body.response_format = { type: "json_object" };
 
-  const json = await post(chatUrl(provider, modelKey), headersFor(provider), body);
+  const json = await post(chatUrl(provider, modelKey), headersFor(provider), body, timeoutMs);
   const text: string = json?.choices?.[0]?.message?.content ?? "";
   const u = json?.usage ?? null;
 
@@ -66,10 +68,10 @@ async function openaiCompatible({
 }
 
 async function anthropic({
-  provider, modelKey, messages, temperature, maxTokens,
+  provider, modelKey, messages, temperature, maxTokens, timeoutMs,
 }: {
   provider: ProviderConfig; modelKey: string; messages: ChatMessage[];
-  temperature: number; maxTokens: number;
+  temperature: number; maxTokens: number; timeoutMs: number;
 }): Promise<ChatResult> {
   // Anthropic system'i ayrı alan olarak istiyor, messages dizisinde kabul
   // etmiyor; sistem mesajları birleştirilip oraya taşınıyor.
@@ -84,7 +86,7 @@ async function anthropic({
     messages: rest,
     temperature,
     max_tokens: maxTokens,
-  });
+  }, timeoutMs);
 
   const text: string = (json?.content ?? [])
     .filter((b: { type: string }) => b.type === "text")
@@ -106,16 +108,17 @@ async function anthropic({
 
 /* ------------------------------------------------------------ ortak */
 
-async function post(url: string, headers: Record<string, string>, body: unknown) {
+async function post(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+  timeoutMs: number
+) {
   const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
-    // Fonksiyonun kendi süre sınırının ALTINDA kalmalı. Hobby planında
-    // sınır 60 sn; timeout onun üstünde olsaydı fonksiyon çağrı bitmeden
-    // öldürülür, elimizde ne yanıt ne de "timeout" kaydı kalırdı.
-    // Pro'ya geçilip maxDuration 300 yapılınca bu da yükseltilmeli.
-    signal: AbortSignal.timeout(50_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");

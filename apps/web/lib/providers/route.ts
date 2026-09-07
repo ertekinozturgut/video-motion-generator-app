@@ -111,6 +111,11 @@ export interface StructuredRequest<S extends z.ZodTypeAny> {
   schemaHint: string;
   temperature?: number;
   maxTokens?: number;
+  /**
+   * Tüm zincir için toplam süre bütçesi. Fonksiyonun kendi sınırının
+   * altında kalmalı; varsayılan Hobby planının 60 sn'sine göre seçildi.
+   */
+  budgetMs?: number;
 }
 
 /**
@@ -128,6 +133,13 @@ export async function callStructured<S extends z.ZodTypeAny>(
   const route = await resolveRoute(req.step, req.ownerId);
   const errors: string[] = [];
 
+  // Canlıda görülen arıza: birincil model her çağrıda zaman aşımına
+  // düşüyor, sabit 50 sn'lik timeout fonksiyonun tüm ömrünü yiyor ve
+  // yedek modele sıra geldiğinde iş yarıda kesiliyordu — ne sonuç ne de
+  // hata kaydı kalıyor, iş RUNNING'de asılı kalıyordu.
+  // Artık bütçe zincire paylaştırılıyor.
+  const deadline = Date.now() + (req.budgetMs ?? 52_000);
+
   for (let i = 0; i < route.chain.length; i++) {
     const model = route.chain[i];
     const provider = await loadProvider(model.providerId, req.ownerId);
@@ -140,6 +152,12 @@ export async function callStructured<S extends z.ZodTypeAny>(
     // İlk deneme + bir onarım turu. İkiden fazlası maliyeti katlıyor ve
     // pratikte düzelmiyor; düzelmiyorsa model yanlış seçilmiş demektir.
     for (let repair = 0; repair <= 1; repair++) {
+      const timeoutMs = attemptTimeout(deadline, i, route.chain.length);
+      if (timeoutMs === null) {
+        errors.push("süre bütçesi tükendi");
+        return failOutOfBudget(req, errors);
+      }
+
       const started = Date.now();
       let raw = "";
       try {
@@ -150,6 +168,7 @@ export async function callStructured<S extends z.ZodTypeAny>(
           jsonMode: model.jsonTier !== "prompt",
           temperature: req.temperature ?? 0.2,
           maxTokens: Math.min(req.maxTokens ?? 8192, model.maxOutput),
+          timeoutMs,
         });
         raw = out.text;
 
@@ -213,12 +232,42 @@ export async function callStructured<S extends z.ZodTypeAny>(
   throw new Error(`${req.step} şemaya uyan çıktı üretemedi. ${errors.join(" | ")}`);
 }
 
+/**
+ * Bir denemeye ne kadar süre verileceği.
+ *
+ * Arkasında yedek varsa üst sınır düşük tutuluyor: takılan bir birincil
+ * modelin bütün bütçeyi yutup yedeği zamansız bırakması, yedeğin var
+ * olma sebebini ortadan kaldırıyor. Son adayda kalan bütçenin tamamı
+ * kullanılabilir. Bütçe bittiyse null döner ve zincir temiz durur.
+ */
+function attemptTimeout(deadline: number, index: number, total: number): number | null {
+  const remaining = deadline - Date.now() - 2_000; // kayıt yazmaya pay
+  if (remaining < 5_000) return null;
+  const hasFallback = index < total - 1;
+  return Math.min(hasFallback ? 20_000 : 45_000, remaining);
+}
+
+function failOutOfBudget(
+  req: { step: PipelineStep },
+  errors: string[]
+): never {
+  throw new Error(
+    `${req.step} süre bütçesi içinde tamamlanamadı. ${errors.join(" | ")}`
+  );
+}
+
 /* ------------------------------------------------------------ yardımcı */
 
 function schemaInstruction(hint: string): string {
   return [
     "ÇIKTI KURALI: Yalnızca tek bir JSON nesnesi döndür.",
     "Markdown kod bloğu, açıklama, ön söz veya son söz ekleme.",
+    // Canlıda görülen davranış: uzun dizilerde model ilk maddeleri eksiksiz
+    // yazıyor, sonrakilerde alan atlamaya başlıyor. Kuralı açıkça söylemek
+    // bunu belirgin biçimde azaltıyor.
+    "Dizilerdeki HER öğe şemadaki TÜM alanları içermeli — ilk öğe kadar",
+    "sonuncusu da eksiksiz olmalı. Bir alanın değeri yoksa null yaz;",
+    "alanı atlamak geçersizdir.",
     "Beklenen yapı:",
     hint,
   ].join("\n");

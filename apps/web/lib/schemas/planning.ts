@@ -5,11 +5,26 @@ export const ClaimSchema = z.object({
   claim_id: z.string().regex(/^C\d{3,}$/),
   text: z.string().min(1).max(600),
   type: z.enum(["fact", "statistic", "quote", "opinion", "instruction"]),
-  source: z.string().nullable(),
+  /**
+   * nullable() değil nullish(): nullable yalnız "değer null olabilir" der,
+   * anahtarın yine de yazılmasını şart koşar. Modeller boş alanları çoğu
+   * zaman hiç yazmıyor ve bu, 40 iddialık bir dökümü tek bir eksik
+   * anahtar yüzünden çöpe atıyordu. Canlıda görüldü.
+   */
+  source: z.string().nullish().default(null),
   confidence: z.number().min(0).max(1),
-  risk: z.enum(["low", "medium", "high"]),
-  needs_review: z.boolean(),
-  review_reason: z.string().nullable(),
+  /**
+   * Eksik güvenlik alanı GÜVENLİ yöne düşer.
+   *
+   * Model uzun listelerde bu iki alanı atlayabiliyor (canlıda görüldü).
+   * Zorunlu bırakmak 40 iddialık dökümü komple çöpe atıyordu; sessizce
+   * "low/false" varsaymak ise riskli bir iddiayı onay ekranında
+   * göstermeden geçirirdi. İkisi de kötü. Atlanan alan "incelenmeli"
+   * kabul ediliyor: en kötü ihtimalle insan bir iddiayı fazladan okur.
+   */
+  risk: z.enum(["low", "medium", "high"]).default("high"),
+  needs_review: z.boolean().default(true),
+  review_reason: z.string().nullish().default(null),
 });
 export type Claim = z.infer<typeof ClaimSchema>;
 
