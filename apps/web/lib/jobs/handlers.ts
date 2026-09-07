@@ -341,7 +341,10 @@ async function report(job: JobRow) {
 
   await transitionRun(job, "RUNNING", to);
   await db.from("video_runs").update({
-    completed_at: new Date().toISOString(),
+    // completed_at yalnız gerçekten tamamlandığında yazılıyor. İnsan
+    // bekleyen bir çalışmaya bitiş zamanı yazmak, listeyi okuyan kişiye
+    // işin bittiğini söyler — oysa iş orada duruyor.
+    completed_at: to === "COMPLETED" ? new Date().toISOString() : null,
     actual_cost: cost,
     final_report_path: scenes.length > 0 ? `/api/runs/${job.run_id}/film` : null,
   }).eq("run_id", job.run_id);
@@ -386,6 +389,7 @@ async function genAssets(job: JobRow) {
   const wanted = plan?.required_assets ?? [];
 
   if (wanted.length > 0) {
+    await clearArtifacts(job, "asset_request");
     await db.from("artifacts").insert(
       wanted.map((a) => ({
         owner_id: job.owner_id, run_id: job.run_id, motion_id: job.motion_id,
@@ -464,6 +468,7 @@ async function genSpec(job: JobRow) {
   }
 
   await db.from("motions").update({ remotion_spec_json: spec }).eq("motion_id", job.motion_id);
+  await clearArtifacts(job, "spec");
   await db.from("artifacts").insert({
     owner_id: job.owner_id, run_id: job.run_id, motion_id: job.motion_id,
     artifact_type: "spec",
@@ -496,6 +501,7 @@ async function renderMotion(job: JobRow) {
     scenes: [{ motionIndex: motion.motion_index, title: motion.name ?? spec.motion_id, spec }],
   });
 
+  await clearArtifacts(job, "scene");
   await db.from("artifacts").insert({
     owner_id: job.owner_id, run_id: job.run_id, motion_id: job.motion_id,
     artifact_type: "scene",
@@ -596,6 +602,21 @@ interface MotionRow {
   qa_attempt: number;
   motion_plan_json: unknown;
   remotion_spec_json: unknown;
+}
+
+/**
+ * Bir sahnenin önceki üretimini siler.
+ *
+ * Adımlar yeniden çalışabiliyor: QA reddedince, ya da insan "yeniden
+ * üret" deyince. Her tur yeni satır bırakırsa tablo aynı sahnenin
+ * eskimiş sürümleriyle doluyor ve "bu sahnenin tarifi hangisi" sorusu
+ * cevapsız kalıyor. Bir sahnenin tek bir güncel üretimi olmalı.
+ */
+async function clearArtifacts(job: JobRow, type: string) {
+  await createAdminClient()
+    .from("artifacts").delete()
+    .eq("motion_id", job.motion_id!)
+    .eq("artifact_type", type);
 }
 
 async function loadMotion(job: JobRow): Promise<MotionRow> {

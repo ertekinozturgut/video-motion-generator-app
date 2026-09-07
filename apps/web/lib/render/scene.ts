@@ -74,6 +74,7 @@ export function renderFilm({
     .map(
       (s) => `<section class="scene bg-${s.spec.background}" data-start="${s.startMs}" data-end="${s.endMs}">
 ${s.spec.layers.map((l) => layerHtml(l, minBody)).join("\n")}
+${s.spec.narration ? `<div class="narration"><span>${esc(s.spec.narration)}</span></div>` : ""}
 </section>`
     )
     .join("\n");
@@ -108,6 +109,9 @@ ${body}
     <span class="time" id="clock">0:00</span>
     <input id="scrub" class="scrub" type="range" min="0" max="${totalMs}" value="0" step="10" aria-label="Zaman çubuğu">
     <span class="time muted">${fmt(totalMs)}</span>
+    ${placed.some((s) => s.spec.narration)
+      ? `<button id="cc" class="cc" aria-pressed="true" title="Altyazıyı aç/kapat">CC</button>`
+      : ""}
   </div>
 
   <div class="chapters">${chapters}</div>
@@ -221,12 +225,21 @@ ${n > 0 ? `.scene::after{content:"";position:absolute;inset:0;pointer-events:non
 .stat-unit{font-size:.42em;color:var(--muted)}
 .stat-cap{font-size:.3em;color:var(--muted);margin-top:.9em;letter-spacing:.04em}
 
+/* Seslendirme metni altyazı olarak duruyor: ses yok, söylenen şey
+   okunabilir olmalı. Sahnenin kendi katmanlarıyla yarışmasın diye
+   alt şeride sabitlendi ve tipografisi bilinçli olarak sakin. */
+.narration{position:absolute;left:8%;right:8%;bottom:52px;text-align:center;z-index:5}
+.narration span{display:inline-block;background:rgba(4,6,10,.72);border:1px solid var(--line);border-radius:10px;padding:14px 26px;font-size:34px;line-height:1.35;color:var(--text)}
+.no-cc .narration{display:none}
+
 .controls{display:flex;align-items:center;gap:14px;margin-top:16px}
 .play{width:44px;height:44px;flex:none;border-radius:999px;border:1px solid var(--line);background:#121a26;color:var(--text);font-size:15px;cursor:pointer}
 .play:hover{background:#18222f}
 .time{font-variant-numeric:tabular-nums;font-size:13px;color:var(--text)}
 .time.muted{color:var(--muted)}
 .scrub{flex:1;accent-color:var(--accent);height:4px;cursor:pointer}
+.cc{flex:none;border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:6px;padding:4px 9px;font-size:12px;font-weight:600;letter-spacing:.06em;cursor:pointer}
+.cc[aria-pressed="false"]{border-color:var(--line);color:var(--muted)}
 .chapters{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
 .chapter{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:#0f1622;color:var(--muted);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;max-width:100%}
 .chapter:hover{color:var(--text);border-color:#2b3a4d}
@@ -337,6 +350,14 @@ function playerJs(): string {
   function pause(){playing=false;playBtn.textContent='▶';}
 
   playBtn.addEventListener('click',function(){playing?pause():play();});
+
+  var cc=document.getElementById('cc');
+  if(cc)cc.addEventListener('click',function(){
+    var on=cc.getAttribute('aria-pressed')!=='true';
+    cc.setAttribute('aria-pressed',on?'true':'false');
+    stage.classList.toggle('no-cc',!on);
+  });
+
   scrub.addEventListener('input',function(){pause();t=Number(scrub.value);paint();});
   chapters.forEach(function(c){c.addEventListener('click',function(){t=Number(c.dataset.seek);paint();play();});});
   addEventListener('keydown',function(e){
