@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isConfigured } from "@/lib/supabase/env";
 import { Setup } from "@/components/Setup";
-import { Card, CardHeader, Chip, EmptyState, PageHeader, btn, type Tone } from "@/components/ui";
+import { Card, CardHeader, Chip, EmptyState, Notice, PageHeader, btn, type Tone } from "@/components/ui";
+import { Recover } from "./Recover";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export default async function PreviewPage({
   }>;
   const meta = (film as { metadata_json?: Record<string, unknown>; created_at?: string } | null);
   const rendered = rows.filter((m) => ["RENDERED", "QA_APPROVED", "UPLOADED"].includes(m.status));
+  const stuck = rows.filter((m) => ["NEEDS_HUMAN", "FAILED_TECHNICAL"].includes(m.status));
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
@@ -75,6 +77,18 @@ export default async function PreviewPage({
           </div>
         }
       />
+
+      {/* Takılan sahne varsa bunu filmin altında değil üstünde söyle:
+          eksik bir filmi izleyip "neden böyle" diye aramasın. */}
+      {stuck.length > 0 && (
+        <div className="mb-5 space-y-3">
+          <Notice tone="attention">
+            {stuck.length} sahne insan kararı bekliyor; film o sahneler olmadan
+            birleştirildi. Yeniden üretebilir ya da atlayabilirsin.
+          </Notice>
+          <Recover runId={runId} />
+        </div>
+      )}
 
       {meta ? (
         <>
@@ -139,6 +153,9 @@ export default async function PreviewPage({
                   >
                     İzle
                   </a>
+                )}
+                {["NEEDS_HUMAN", "FAILED_TECHNICAL"].includes(m.status) && (
+                  <Recover runId={runId} motionId={m.motion_id} compact />
                 )}
               </li>
             );
