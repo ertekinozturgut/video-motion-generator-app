@@ -23,7 +23,7 @@ export default async function ApprovalPage({
 
   const { data: run } = await supabase
     .from("video_runs")
-    .select("run_id,title,status,claim_ledger_json,audience_profile_json,approved_at")
+    .select("run_id,title,status,source_script,claim_ledger_json,audience_profile_json,approved_at")
     .eq("run_id", runId)
     .maybeSingle();
   if (!run) notFound();
@@ -31,6 +31,7 @@ export default async function ApprovalPage({
   const r = run as {
     title: string | null;
     status: string;
+    source_script: string | null;
     claim_ledger_json: { claims: Claim[]; flagged_claim_ids?: string[] } | null;
     audience_profile_json: Record<string, unknown> | null;
     approved_at: string | null;
@@ -74,6 +75,7 @@ export default async function ApprovalPage({
           runId={runId}
           claims={claims}
           audience={r.audience_profile_json}
+          script={r.source_script}
         />
       )}
     </div>

@@ -5,3 +5,4 @@
  */
 export * from "./planning";
 export * from "./motion";
+export * from "./scene";

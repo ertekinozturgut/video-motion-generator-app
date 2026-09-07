@@ -35,9 +35,19 @@ export default async function RunPage({
             {new Date(run.created_at).toLocaleString("tr-TR")}
           </p>
         </div>
-        <Link href={`/runs/${runId}/logs`} className={btn.ghost}>
-          Kayıtlar
-        </Link>
+        <div className="flex gap-2">
+          {run.status === "AWAITING_APPROVAL" && (
+            <Link href={`/runs/${runId}/approval`} className={btn.primary}>
+              Onay bekliyor
+            </Link>
+          )}
+          <Link href={`/runs/${runId}/preview`} className={btn.ghost}>
+            Önizleme
+          </Link>
+          <Link href={`/runs/${runId}/logs`} className={btn.ghost}>
+            Kayıtlar
+          </Link>
+        </div>
       </div>
 
       <Live
