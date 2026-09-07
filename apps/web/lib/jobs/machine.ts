@@ -25,7 +25,10 @@ const RUN_TRANSITIONS: Record<RunStatus, RunStatus[]> = {
   READY:                 ["RUNNING", "CANCELLED"],
   RUNNING:               ["COMPLETED", "NEEDS_HUMAN", "FAILED_TECHNICAL"],
   COMPLETED:             [],
-  NEEDS_HUMAN:           ["RUNNING", "CANCELLED"],
+  // APPROVED_FOR_PLANNING, plan denetimi reddettiğinde açılan tek çıkış:
+  // sahne yoksa kurtarılacak sahne de yoktur, plan baştan üretilir.
+  // Kararı insan veriyor; akış kendi kendine bu yolu kullanmıyor.
+  NEEDS_HUMAN:           ["RUNNING", "APPROVED_FOR_PLANNING", "CANCELLED"],
   APPROVAL_TIMEOUT:      ["APPROVED_FOR_PLANNING", "CANCELLED"],
   FAILED_TECHNICAL:      ["RECEIVED", "CANCELLED"],
   CANCELLED:             [],

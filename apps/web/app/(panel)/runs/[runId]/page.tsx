@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Live } from "./Live";
-import { btn } from "@/components/ui";
+import { Notice, btn } from "@/components/ui";
+import { Recover } from "./preview/Recover";
 
 export default async function RunPage({
   params,
@@ -49,6 +50,23 @@ export default async function RunPage({
           </Link>
         </div>
       </div>
+
+      {/* Çıkmaz sokak olmasın: "insan bekliyor" diyen ekran, insanın
+          basacağı düğmeyi de göstermeli. */}
+      {run.status === "NEEDS_HUMAN" && (
+        <div className="mb-6 space-y-3">
+          <Notice tone="attention">
+            {motions?.length
+              ? "Bazı sahneler insan kararı bekliyor. Önizleme ekranından tek tek yeniden üretebilir ya da atlayabilirsin."
+              : "Plan denetimi planı iki turda da reddetti. Yeniden planlayabilirsin; senaryoyu değiştirmeden denemek çoğu zaman aynı sonucu verir."}
+          </Notice>
+          {motions?.length ? (
+            <Link href={`/runs/${runId}/preview`} className={btn.primary}>Önizlemeye git</Link>
+          ) : (
+            <Recover runId={runId} />
+          )}
+        </div>
+      )}
 
       <Live
         runId={runId}
