@@ -1,0 +1,214 @@
+[
+  {
+    "id": "TASK-01",
+    "title": "Shorts 9:16 formatını gerçekten üret",
+    "description": "Yeni çalışma formunda 'Shorts 9:16' seçilebiliyor ama renderer 1920x1080'e ve aspect-ratio 16/9'a sabit. Shorts seçen kullanıcı sessizce 16:9 film alıyor — arayüzün tutmadığı bir söz. Format video_runs.settings_json içinde zaten duruyor; RENDER ve REPORT adımlarına taşınıp sahne ölçüleri ile viewport oranı buna göre seçilmeli. Sahne tarifi yüzde koordinat kullandığı için katmanlar taşınabilir; ancak dikey tuvalde satır uzunlukları değiştiğinden checkScene yükseklik tahminleri ve GEN_SPEC prompt'undaki yerleşim tavsiyeleri de formata göre ayarlanmalı.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": [],
+    "assignedSquad": {
+      "orchestrator": "project-manager",
+      "analyst": "business-analyst",
+      "architect": "solution-architect",
+      "ux": "uiux-designer",
+      "developers": ["backend-engineer", "frontend-engineer"],
+      "reviewers": ["qa-tester", "security-reviewer"]
+    },
+    "dorMet": false,
+    "dodMet": false,
+    "artifacts": {
+      "userStory": "",
+      "acceptanceCriteria": [
+        "Shorts seçilen bir çalışmanın filmi 9:16 tuvalde üretilir",
+        "16:9 çalışmaların çıktısı değişmez (gerileme yok)",
+        "checkScene dikey tuvalde de doğru kusur yakalar",
+        "Her iki formatta üretilen film tarayıcıda oynatılarak doğrulanır"
+      ],
+      "architectureDecisions": [],
+      "uiDesignTokens": [],
+      "testsWritten": [],
+      "securityAuditPassed": false
+    }
+  },
+  {
+    "id": "TASK-02",
+    "title": "Motion planındaki ölü alanları bağla ya da sil",
+    "description": "MotionPlanSchema içindeki layout, component, variant, accent, effects, transition alanlarının üzerinde 'registry ID'leriyle çapraz doğrulanır (specGuard)' yorumu duruyor. Ne registry var ne specGuard. Model bu alanlara ne yazarsa yazsın kimse bakmıyor ve renderer da kullanmıyor. Kodda duran ölü vaat, okuyanı o alanın güvenli olduğuna inandırır. Karar: ya bir registry tanımlanıp sahne üretiminde gerçekten kullanılır, ya alanlar şemadan çıkarılır. Basit ve dürüst olan ikincisidir; birincisi sahne çeşitliliğine katkı sağlıyorsa tercih edilebilir.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": [],
+    "assignedSquad": {
+      "orchestrator": "project-manager",
+      "analyst": "business-analyst",
+      "architect": "solution-architect",
+      "ux": "uiux-designer",
+      "developers": ["backend-engineer"],
+      "reviewers": ["qa-tester", "security-reviewer"]
+    },
+    "dorMet": false,
+    "dodMet": false,
+    "artifacts": {
+      "userStory": "",
+      "acceptanceCriteria": [
+        "Şemadaki her alan ya doğrulanıyor ya kullanılıyor ya da kaldırıldı",
+        "Hiçbir yorum, yapılmayan bir doğrulamayı iddia etmiyor",
+        "Mevcut çalışmaların planları kırılmıyor"
+      ],
+      "architectureDecisions": [],
+      "uiDesignTokens": [],
+      "testsWritten": [],
+      "securityAuditPassed": false
+    }
+  },
+  {
+    "id": "TASK-03",
+    "title": "Kontrolleri depoya al ve CI'da çalıştır",
+    "description": "Şemalar, durum makinesi, sahne guard'ı ve renderer elle doğrulandı ama hiçbir kontrol depoda durmuyor. Bir sonraki değişiklik bunları sessizce bozabilir. Model çağırmadan sınanabilen her şey için çalıştırılabilir kontroller yazılmalı: canlıda görülmüş bozuk yüklerle şema testleri, on iki run durumunun tamamı için geçiş kapsamı, bilerek kusurlu sahnelerle guard doğrulaması, enjeksiyon denemesi. GitHub Actions ile her PR'da tsc + next build + kontroller koşmalı.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": [],
+    "assignedSquad": {
+      "orchestrator": "project-manager",
+      "analyst": "business-analyst",
+      "architect": "solution-architect",
+      "ux": "uiux-designer",
+      "developers": ["backend-engineer"],
+      "reviewers": ["qa-tester", "security-reviewer"]
+    },
+    "dorMet": false,
+    "dodMet": false,
+    "artifacts": {
+      "userStory": "",
+      "acceptanceCriteria": [
+        "Kontroller tek komutla çalışıyor ve model çağırmıyor",
+        "Canlıda görülmüş her şema arızası için o yükün kendisi teste girdi",
+        "Durum makinesi tüm durumlar için sınanıyor",
+        "CI her PR'da tsc, next build ve kontrolleri koşuyor; kırmızıysa merge edilemiyor"
+      ],
+      "architectureDecisions": [],
+      "uiDesignTokens": [],
+      "testsWritten": [],
+      "securityAuditPassed": false
+    }
+  },
+  {
+    "id": "TASK-04",
+    "title": "Kuyruğun gün içinde kendini toparlaması",
+    "description": "Hobby planında cron günde bir kez çalışıyor (03:00 UTC). Tetikleme zinciri ortada koparsa (fonksiyon süresi dolar, HTTP tetikleme takılır) işler kuyrukta ertesi sabaha kadar bekliyor; tek çare kullanıcının 'Sıradakileri işle' düğmesine basması. Gün içinde kendiliğinden toparlanma yolu kurulmalı: panelde açık bir sekmenin bekleyen iş gördüğünde tetiklemesi, lease'i dolan işlerin otomatik toplanması ya da harici bir zamanlayıcı. Seçenekler maliyet ve karmaşıklık açısından değerlendirilip biri seçilmeli.",
+    "status": "pending",
+    "priority": "medium",
+    "dependencies": [],
+    "assignedSquad": {
+      "orchestrator": "project-manager",
+      "analyst": "business-analyst",
+      "architect": "solution-architect",
+      "ux": "uiux-designer",
+      "developers": ["backend-engineer", "frontend-engineer"],
+      "reviewers": ["qa-tester", "security-reviewer"]
+    },
+    "dorMet": false,
+    "dodMet": false,
+    "artifacts": {
+      "userStory": "",
+      "acceptanceCriteria": [
+        "Tetikleme koptuğunda kuyruk gün içinde kendiliğinden ilerliyor",
+        "Aynı iş çiftlenmiyor (SKIP LOCKED korunuyor)",
+        "Kurtarma yolu panelde görünür ve neyin beklediği yazıyor"
+      ],
+      "architectureDecisions": [],
+      "uiDesignTokens": [],
+      "testsWritten": [],
+      "securityAuditPassed": false
+    }
+  },
+  {
+    "id": "TASK-05",
+    "title": "Fiyatı bilinmeyen modelde bütçe boşluğunu kapat",
+    "description": "Bütçe kapısı attempts.cost_usd toplamına, o da provider_models.pricing alanına dayanıyor. Fiyatı girilmemiş bir model 0 maliyet sayılıyor ve sınırı hiç tüketmiyor. Ücretsiz modeller için doğru; ücretli bir modelin fiyatı girilmemişse sınır o model için sessizce işlemiyor. Fiyatsız model dağıtıma girerken uyarı verilmeli ve/veya token bazlı ikinci bir tavan uygulanmalı. Bilinmeyen fiyata uydurma rakam konmayacak — sessiz varsayım, yanlış güvence üretir.",
+    "status": "pending",
+    "priority": "medium",
+    "dependencies": [],
+    "assignedSquad": {
+      "orchestrator": "project-manager",
+      "analyst": "business-analyst",
+      "architect": "solution-architect",
+      "ux": "uiux-designer",
+      "developers": ["backend-engineer", "frontend-engineer"],
+      "reviewers": ["qa-tester", "security-reviewer"]
+    },
+    "dorMet": false,
+    "dodMet": false,
+    "artifacts": {
+      "userStory": "",
+      "acceptanceCriteria": [
+        "Fiyatı olmayan model dağıtıma girerken kullanıcı uyarılıyor",
+        "Bütçenin o model için işlemediği panelde görünüyor",
+        "Uydurma fiyat varsayımı yapılmıyor"
+      ],
+      "architectureDecisions": [],
+      "uiDesignTokens": [],
+      "testsWritten": [],
+      "securityAuditPassed": false
+    }
+  },
+  {
+    "id": "TASK-06",
+    "title": "Görsel üretimini akışa bağla (ASSET_QA dahil)",
+    "description": "Motion planı required_assets üretiyor, GEN_ASSETS bunları kaydediyor ama hiçbir görsel üretilmiyor; sahneler tipografik. ASSET_QA adımı routing ekranında model atanabilir görünüyor ama hiçbir yerden çağrılmıyor — arayüzde duran ama karşılığı olmayan bir kapı. Ya bir görsel modeli akışa bağlanıp üretilen görsel sahneye yerleştirilmeli ve ASSET_QA gerçekten çalışmalı, ya da ASSET_QA dağıtım ekranından kaldırılıp tipografik üretim açıkça tek yol olarak yazılmalı.",
+    "status": "pending",
+    "priority": "medium",
+    "dependencies": ["TASK-01"],
+    "assignedSquad": {
+      "orchestrator": "project-manager",
+      "analyst": "business-analyst",
+      "architect": "solution-architect",
+      "ux": "uiux-designer",
+      "developers": ["backend-engineer", "frontend-engineer"],
+      "reviewers": ["qa-tester", "security-reviewer"]
+    },
+    "dorMet": false,
+    "dodMet": false,
+    "artifacts": {
+      "userStory": "",
+      "acceptanceCriteria": [
+        "Dağıtım ekranındaki her adım gerçekten çağrılıyor",
+        "Görsel üretiliyorsa sahneye yerleşiyor ve denetimden geçiyor",
+        "Üretilmiyorsa bu durum arayüzde açıkça yazıyor"
+      ],
+      "architectureDecisions": [],
+      "uiDesignTokens": [],
+      "testsWritten": [],
+      "securityAuditPassed": false
+    }
+  },
+  {
+    "id": "TASK-07",
+    "title": "Ölü iş tipini, kullanılmayan alanları temizle ve iptal düğmesi ekle",
+    "description": "RENDER_POLL iş tipi hiç kuyruğa yazılmıyor; motions.gdrive_path, artifacts.gdrive_id ve video_runs.gdrive_folder_id alanları hiçbir yerden doldurulmuyor. Kodda ve şemada duran karşılıksız yapı, okuyanı olmayan bir yetenek olduğuna inandırır. Ayrıca çalışmayı iptal etme düğmesi yok: başlatılan bir çalışmayı durdurmanın panelden yolu bulunmuyor.",
+    "status": "pending",
+    "priority": "low",
+    "dependencies": [],
+    "assignedSquad": {
+      "orchestrator": "project-manager",
+      "analyst": "business-analyst",
+      "architect": "solution-architect",
+      "ux": "uiux-designer",
+      "developers": ["backend-engineer", "frontend-engineer"],
+      "reviewers": ["qa-tester", "security-reviewer"]
+    },
+    "dorMet": false,
+    "dodMet": false,
+    "artifacts": {
+      "userStory": "",
+      "acceptanceCriteria": [
+        "Kullanılmayan iş tipi ve alanlar ya bağlandı ya kaldırıldı",
+        "Çalışma panelden iptal edilebiliyor ve iptal geri alınamaz olduğu için iki adımlı onaylanıyor",
+        "İptal edilen çalışmanın bekleyen işleri kuyruktan düşüyor"
+      ],
+      "architectureDecisions": [],
+      "uiDesignTokens": [],
+      "testsWritten": [],
+      "securityAuditPassed": false
+    }
+  }
+]
